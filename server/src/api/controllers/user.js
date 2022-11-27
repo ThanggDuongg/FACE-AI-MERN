@@ -113,10 +113,13 @@ const activeAccout = asyncHandler(async(req, res) => {
 
 		if (userExisted) {
 			//update user to active account
+			const dataUpdate = {
+				...userExisted,
+				isActive: true
+			}
 			userExisted.isActive = true;
 			const updateUser = await User.findOneAndUpdate(email, {
-				...userExisted,
-				email,
+				dataUpdate
 			}, {
 				new: true,
 			});

@@ -5,13 +5,15 @@ import React, { useState, useRef, useEffect } from 'react'
 function FaceDetectRealtimePage() {
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [captureVideo, setCaptureVideo] = useState(false);
+  const [matcher, setMatcher] = useState(null);
 
   const videoRef = useRef(null);
   const videoHeight = 480;
   const videoWidth = 640;
   const canvasRef = useRef(null);
+  let faceMatcher;
 
-  useEffect(() => {
+  useEffect( async () => {
     const loadModels = async () => {
       const MODEL_URL = process.env.PUBLIC_URL + '/models';
 
@@ -26,8 +28,30 @@ function FaceDetectRealtimePage() {
         faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
         faceapi.nets.tinyYolov2.loadFromUri(MODEL_URL),
       ]).then(setModelsLoaded(true));
+      const loadTrainingData = async () => {
+        const faceDescription = []
+        const labels = ["Drogba"]
+        for (const label of labels) {
+          const description = []
+          for (let i = 1; i <= 5; i ++) {
+            console.log("../data/Drogba/1.png");
+            const image = await faceapi.fetchImage(`/data/${label}/${i}.png`)
+            const detection = await faceapi.detectSingleFace(image).withFaceLandmarks().withFaceDescriptor()
+            description.push(detection.descriptor)
+            console.log(image);
+          }
+          faceDescription.push(new faceapi.LabeledFaceDescriptors(label, description))
+        }
+        console.log("client/src/pages/service/FaceDetectRealtimePage/data/Drogba/1.png");
+        // console.log(faceDescription);
+        return faceDescription;
+      }
+      const traning = await loadTrainingData()
+      faceMatcher = new faceapi.FaceMatcher(traning, 0.6);
+      setMatcher(faceMatcher)
     }
     loadModels();
+    
   }, []);
 
   const startVideo = () => {
@@ -68,7 +92,7 @@ function FaceDetectRealtimePage() {
 
         resizedDetections.forEach(detection => {
           const box = detection.detection.box
-          const drawBox = new faceapi.draw.DrawBox(box, { label: Math.round(detection.age) + " year old " + detection.gender })
+          const drawBox = new faceapi.draw.DrawBox(box, { label: faceMatcher.findBestMatch(detection.descriptor)})
           drawBox.draw(canvasRef.current)
         })
       }
